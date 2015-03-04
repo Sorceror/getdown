@@ -5,20 +5,19 @@
 
 package com.threerings.getdown.data;
 
-import java.awt.Color;
-import java.awt.Rectangle;
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.PrintStream;
-import java.io.RandomAccessFile;
-import java.io.UnsupportedEncodingException;
+import com.samskivert.io.StreamUtil;
+import com.samskivert.text.MessageUtil;
+import com.samskivert.util.ArrayUtil;
+import com.samskivert.util.RandomUtil;
+import com.samskivert.util.RunAnywhere;
+import com.samskivert.util.StringUtil;
+import com.threerings.getdown.launcher.RotatingBackgrounds;
+import com.threerings.getdown.util.*;
+import org.apache.commons.codec.binary.Base64;
+
+import javax.swing.*;
+import java.awt.*;
+import java.io.*;
 import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -27,45 +26,13 @@ import java.net.URLConnection;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.channels.OverlappingFileLockException;
-import java.security.AllPermission;
-import java.security.CodeSource;
-import java.security.GeneralSecurityException;
-import java.security.PermissionCollection;
-import java.security.Permissions;
-import java.security.Signature;
+import java.security.*;
 import java.security.cert.Certificate;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.EnumMap;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
+import java.util.*;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map.Entry;
-import java.util.Map;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import javax.swing.JApplet;
-
-import org.apache.commons.codec.binary.Base64;
-
-import com.samskivert.io.StreamUtil;
-import com.samskivert.text.MessageUtil;
-import com.samskivert.util.ArrayUtil;
-import com.samskivert.util.RandomUtil;
-import com.samskivert.util.RunAnywhere;
-import com.samskivert.util.StringUtil;
-import com.threerings.getdown.launcher.RotatingBackgrounds;
-import com.threerings.getdown.util.ConfigUtil;
-import com.threerings.getdown.util.ConnectionUtil;
-import com.threerings.getdown.util.FileUtil;
-import com.threerings.getdown.util.LaunchUtil;
-import com.threerings.getdown.util.MetaProgressObserver;
-import com.threerings.getdown.util.ProgressObserver;
-import com.threerings.getdown.util.VersionUtil;
 
 import static com.threerings.getdown.Log.log;
 
@@ -786,20 +753,92 @@ public class Application
             return true;
         }
 
-        // if we have a fully unpacked VM assume it is the right version (TODO: don't)
+        // if we have a fully unpacked VM assume check its version
         Resource vmjar = getJavaVMResource();
         if (vmjar != null && vmjar.isMarkedValid()) {
-            return true;
+            // there is some java already downloaded and unpacked, let's check its version
+            if (parseJavaVersionAndCheckVersionRequierements(getUnpackedJavaVersionString())) {
+                log.info("Downloaded and unpacked JVM passed version requirements and will be used to launch APP");
+                return true;
+            }
+            // downloaded java is obsolete and need to be cleared
+            else {
+                log.warning("Downloaded and unpacked JVM does not pass version requirements. Is obsolete and will be removed.");
+                clearDownloadedJava(vmjar);
+            }
         }
 
-        // parse the version out of the java.version system property
-        String verstr = System.getProperty("java.version");
-        Matcher m = Pattern.compile("(\\d+)\\.(\\d+)\\.(\\d+)(_\\d+)?.*").matcher(verstr);
+        // check java installed in OS
+        return parseJavaVersionAndCheckVersionRequierements(System.getProperty("java.version"));
+    }
+
+    /**
+     * Check downloaded and unpacked version of JVM (if exists) and return its version as String
+     * @return String with JVM version (e.g. "1.8.0_25") or null if JVM not found or there was some error during processing
+     */
+    private String getUnpackedJavaVersionString() {
+        String versionString = null;
+        // on windows command line javaw does not return any output by default
+        // but "-version" is passed to error output same way as with java command itself
+        String localJVMPath = LaunchUtil.getLocalJVMPath(getLocalPath(""));
+        if (localJVMPath != null) {
+            File javaExecutable = new File(localJVMPath);
+            if (javaExecutable.exists()) {
+                BufferedReader reader = null;
+                try {
+                    Process process = Runtime.getRuntime().exec(javaExecutable.getAbsoluteFile().getPath() + " -version");
+                    // default output for -version argument is STDERR
+                    // see http://stackoverflow.com/questions/13483443/why-does-java-version-go-to-stderr
+                    // http://bugs.java.com/bugdatabase/view_bug.do?bug_id=4380614
+                    reader = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+                    String line;
+                    StringBuilder versionOutputSB = new StringBuilder();
+                    while ((line = reader.readLine()) != null) {
+                        versionOutputSB.append(line);
+                    }
+                    if (process.waitFor() != 0)
+                        log.warning("Java version check process ended with irregular error code (" + process.exitValue() + ")");
+                    Matcher m = Pattern.compile(".*\"(.*)\".*").matcher(versionOutputSB.toString());
+                    if (m.matches())
+                        versionString = m.group(1);
+                    else
+                        log.error("Unpacked java version string does not match! Value: " + versionOutputSB.toString());
+                } catch (Exception e) {
+                    log.error("Exception during checking of unpacked java version", e);
+                } finally {
+                    if (reader != null)
+                        try {
+                            reader.close();
+                        } catch (IOException e) {
+                            // what else can we do
+                            log.warning("Cannot close java version check process output stream");
+                        }
+                }
+            }
+        }
+
+        return versionString;
+    }
+
+    /**
+     * Parse java version string (e.g. "1.8.0_25") and return if meets selected JVM version requirements
+     * @param versionString String JVM version
+     * @return boolean flag
+     * @see #_javaMinVersion
+     * @see #_javaMaxVersion
+     * @see #_javaExactVersionRequired
+     */
+    private boolean parseJavaVersionAndCheckVersionRequierements(String versionString) {
+        // sanity check
+        if (versionString == null)
+            return false;
+
+        Matcher m = Pattern.compile("(\\d+)\\.(\\d+)\\.(\\d+)(_\\d+)?.*").matcher(versionString);
         if (!m.matches()) {
             // if we can't parse the java version we're in weird land and should probably just try
             // our luck with what we've got rather than try to download a new jvm
             log.warning("Unable to parse VM version, hoping for the best",
-                        "version", verstr, "needed", _javaMinVersion);
+                    "version", versionString, "needed", _javaMinVersion);
             return true;
         }
 
@@ -814,7 +853,7 @@ public class Application
                 return true;
             } else {
                 log.warning("An exact Java VM version is required.", "current", version,
-                            "required", _javaMinVersion);
+                        "required", _javaMinVersion);
                 return false;
             }
         }
@@ -822,6 +861,26 @@ public class Application
         boolean minVersionOK = (_javaMinVersion == 0) || (version >= _javaMinVersion);
         boolean maxVersionOK = (_javaMaxVersion == 0) || (version <= _javaMaxVersion);
         return minVersionOK && maxVersionOK;
+    }
+
+    /**
+     * If there is resource with downloaded JVM it's deleted as well as unpacked content
+     * @param vmjar {@link Resource} with downloaded JVM
+     */
+    private void clearDownloadedJava(Resource vmjar) {
+        // delete downloaded java and it's marker
+        if (vmjar != null) {
+            vmjar.erase();
+        }
+        // delete unpacked
+        try {
+            if (FileUtil.deleteRecursive(new File(getLocalPath(""), LaunchUtil.LOCAL_JAVA_DIR)))
+                log.info("Downloaded and unpacked JVM removed");
+            else
+                log.warning("Downloaded and unpacked JVM couldn't be removed!");
+        } catch (FileNotFoundException e) {
+            log.debug("Local JVM not part of application, won't be deleted");
+        }
     }
 
     /**
