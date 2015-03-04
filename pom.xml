@@ -147,12 +147,12 @@
           <dependency>
             <groupId>net.sf.proguard</groupId>
             <artifactId>proguard-base</artifactId>
-            <version>5.1</version>
+            <version>5.2</version>
             <scope>runtime</scope>
           </dependency>
         </dependencies>
         <configuration>
-          <proguardVersion>5.1</proguardVersion>
+          <proguardVersion>5.2</proguardVersion>
           <outputDirectory>${project.build.directory}</outputDirectory>
           <outjar>${project.build.finalName}.jar</outjar>
           <injar>${project.build.finalName}.jar</injar>
@@ -174,11 +174,11 @@
               </inclusion>
             </inclusions>
           </assembly>
-          <obfuscate>true</obfuscate>
+          <obfuscate>false</obfuscate>
           <options>
             <option>-keep public class com.threerings.getdown.** { *; }</option>
             <option>-keep public class ca.beq.util.win32.registry.** { *; }</option>
-            <option>-keepattributes Exceptions, InnerClasses, Signature</option>
+            <option>-keepattributes Exceptions, InnerClasses, Signature, SourceFile, LineNumberTable</option>
           </options>
           <libs>
             <lib>${rt.jar.path}</lib>
@@ -325,6 +325,41 @@
       <properties>
         <plugin.jar.path>/usr/share/icedtea-web/plugin.jar</plugin.jar.path>
       </properties>
+    </profile>
+
+    <profile>
+        <id>local-test</id>
+        <build>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-dependency-plugin</artifactId>
+                    <version>2.10</version>
+                    <executions>
+                        <execution>
+                            <id>copy</id>
+                            <phase>package</phase>
+                            <goals>
+                                <goal>copy</goal>
+                            </goals>
+                            <configuration>
+                                <artifactItems>
+                                    <artifactItem>
+                                        <groupId>${project.groupId}</groupId>
+                                        <artifactId>${project.artifactId}</artifactId>
+                                        <version>${project.version}</version>
+                                        <type>${project.packaging}</type>
+                                        <overWrite>true</overWrite>
+                                        <outputDirectory>${deploy.local.dir}</outputDirectory>
+                                    </artifactItem>
+                                </artifactItems>
+                                <stripVersion>true</stripVersion>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
+            </plugins>
+        </build>
     </profile>
 
     <!-- For deploying to a local place -->
