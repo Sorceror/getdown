@@ -78,6 +78,15 @@ public class LaunchUtil
     }
 
     /**
+     * Reconstruct the path to downloaded and unpacked JVM (return null if local JVM does not exist)
+     * @param appdir {@link File} working directory
+     * @return String with path to local java executable or null if does not exist
+     */
+    public static String getLocalJVMPath (File appdir) {
+        return checkJVMPath(new File(appdir, LOCAL_JAVA_DIR).getPath(), false);
+    }
+
+    /**
      * Reconstructs the path to the JVM used to launch this process.
      */
     public static String getJVMPath (File appdir)

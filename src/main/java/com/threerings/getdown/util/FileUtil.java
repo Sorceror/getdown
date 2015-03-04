@@ -5,12 +5,7 @@
 
 package com.threerings.getdown.util;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.Reader;
+import java.io.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -95,5 +90,23 @@ public class FileUtil
             StreamUtil.close(in);
         }
         return lines;
+    }
+
+    /**
+     * Delete file or folder (with its content recursively)
+     * @param path {@link File} instance
+     * @return true if the file and all sub files/directories have been removed
+     * @throws FileNotFoundException when provided path is not valid
+     */
+    public static boolean deleteRecursive(File path) throws FileNotFoundException {
+        if (!path.exists())
+            throw new FileNotFoundException(path.getAbsolutePath());
+        boolean ret = true;
+        if (path.isDirectory()){
+            for (File f : path.listFiles()){
+                ret = ret && deleteRecursive(f);
+            }
+        }
+        return ret && path.delete();
     }
 }
