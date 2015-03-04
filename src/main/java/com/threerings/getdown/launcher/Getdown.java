@@ -873,7 +873,7 @@ public abstract class Getdown extends Thread
                     _layers = new JLayeredPane();
                     _container.add(_layers, BorderLayout.CENTER);
                     _patchNotes = new JButton(new AbstractAction(_msgs.getString("m.patch_notes")) {
-                        @Override public void actionPerformed (ActionEvent event) {
+                        public void actionPerformed (ActionEvent event) {
                             showDocument(_ifc.patchNotesUrl);
                         }
                     });
@@ -886,7 +886,7 @@ public abstract class Getdown extends Thread
                         _playAgain.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
                         _playAgain.setFont(StatusPanel.FONT);
                         _playAgain.addActionListener(new ActionListener() {
-                            @Override public void actionPerformed (ActionEvent event) {
+                            public void actionPerformed (ActionEvent event) {
                                 _playAgain.setVisible(false);
                                 _stepMinPercent = _lastGlobalPercent = 0;
                                 EventQueue.invokeLater(new Runnable() {
