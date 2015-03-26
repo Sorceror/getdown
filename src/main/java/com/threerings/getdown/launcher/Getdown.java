@@ -38,16 +38,7 @@ import java.net.URLConnection;
 
 import java.security.cert.Certificate;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.ResourceBundle;
-import java.util.Set;
-import java.util.Timer;
-import java.util.TimerTask;
+import java.util.*;
 
 import ca.beq.util.win32.registry.RegistryKey;
 import ca.beq.util.win32.registry.RegistryValue;
@@ -598,9 +589,9 @@ public abstract class Getdown extends Thread
         if (!RunAnywhere.isWindows()) {
             String vmbin = LaunchUtil.LOCAL_JAVA_DIR + File.separator + "bin" +
                 File.separator + "java";
-            String cmd = "chmod a+rx " + _app.getLocalPath(vmbin);
+            String[] cmd = {"chmod", "a+rx", _app.getLocalPath(vmbin).toString()};
             try {
-                log.info("Please smack a Java engineer. Running: " + cmd);
+                log.info("Please smack a Java engineer. Running: " + Arrays.asList(cmd));
                 Runtime.getRuntime().exec(cmd);
             } catch (Exception e) {
                 log.warning("Failed to mark VM binary as executable", "cmd", cmd, "error", e);

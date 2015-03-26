@@ -796,7 +796,9 @@ public class Application
             if (javaExecutable.exists()) {
                 BufferedReader reader = null;
                 try {
-                    Process process = Runtime.getRuntime().exec(javaExecutable.getAbsoluteFile().getPath() + " -version");
+                    // String array is used to avoid problems with spaces in path
+                    // see http://stackoverflow.com/questions/17141767/having-spaces-in-runtime-getruntime-exec-with-2-executables
+                    Process process = Runtime.getRuntime().exec(new String[] {javaExecutable.getAbsoluteFile().getPath(), "-version"});
                     // default output for -version argument is STDERR
                     // see http://stackoverflow.com/questions/13483443/why-does-java-version-go-to-stderr
                     // http://bugs.java.com/bugdatabase/view_bug.do?bug_id=4380614
