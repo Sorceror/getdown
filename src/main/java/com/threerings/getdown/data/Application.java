@@ -757,19 +757,29 @@ public class Application
         Resource vmjar = getJavaVMResource();
         if (vmjar != null && vmjar.isMarkedValid()) {
             // there is some java already downloaded and unpacked, let's check its version
-            if (parseJavaVersionAndCheckVersionRequierements(getUnpackedJavaVersionString())) {
-                log.info("Downloaded and unpacked JVM passed version requirements and will be used to launch APP");
+            String jvmVersion = getUnpackedJavaVersionString();
+            if (parseJavaVersionAndCheckVersionRequierements(jvmVersion)) {
+                log.info("Downloaded and unpacked JVM (" + jvmVersion + ") passed version requirements and will be used to launch APP");
                 return true;
             }
             // downloaded java is obsolete and need to be cleared
             else {
-                log.warning("Downloaded and unpacked JVM does not pass version requirements. Is obsolete and will be removed.");
+                log.info("Downloaded and unpacked JVM (" + jvmVersion + ") does not pass version requirements, is obsolete and will be removed");
                 clearDownloadedJava(vmjar);
             }
         }
 
         // check java installed in OS
-        return parseJavaVersionAndCheckVersionRequierements(System.getProperty("java.version"));
+        String osJavaVersion = System.getProperty("java.version");
+        boolean osJavaVersionCheck = parseJavaVersionAndCheckVersionRequierements(osJavaVersion);
+        log.info("OS Java (" + osJavaVersion + ") " +
+                (osJavaVersionCheck ?
+                        "passed version requirements and will be used to launch APP" :
+                        "does not pass version requirements, attempt to download embed Java will follow"
+                )
+        );
+
+        return osJavaVersionCheck;
     }
 
     /**
