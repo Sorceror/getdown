@@ -400,6 +400,16 @@ public abstract class Getdown extends Thread
 
             //setStep(Step.START);
             for (int ii = 0; ii < MAX_LOOPS; ii++) {
+                // make sure we have the desired version and that the metadata files are valid...
+                setStep(Step.VERIFY_METADATA);
+                setStatus("m.validating", -1, -1L, false);
+                if (_app.verifyMetadata(this)) {
+                    log.info("Application requires update.");
+                    update();
+                    // loop back again and reverify the metadata
+                    continue;
+                }
+
                 // if we aren't running in a JVM that meets our version requirements, either
                 // complain or attempt to download and install the appropriate version
                 if (!_app.haveValidJavaVersion()) {
@@ -413,16 +423,6 @@ public abstract class Getdown extends Thread
                     } finally {
                         _enableTracking = false;
                     }
-                    continue;
-                }
-
-                // make sure we have the desired version and that the metadata files are valid...
-                setStep(Step.VERIFY_METADATA);
-                setStatus("m.validating", -1, -1L, false);
-                if (_app.verifyMetadata(this)) {
-                    log.info("Application requires update.");
-                    update();
-                    // loop back again and reverify the metadata
                     continue;
                 }
 
