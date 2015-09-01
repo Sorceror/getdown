@@ -587,9 +587,8 @@ public abstract class Getdown extends Thread
         // extension then, neither does Jar), so on Joonix we have to hackily make java_vm/bin/java
         // executable by execing chmod; a pox on their children!
         if (!RunAnywhere.isWindows()) {
-            String vmbin = LaunchUtil.LOCAL_JAVA_DIR + File.separator + "bin" +
-                File.separator + "java";
-            String[] cmd = {"chmod", "a+rx", _app.getLocalPath(vmbin).toString()};
+            // Mac needs execute privileges on lib folder as well for some reason, so let's put them to whole java folder for god's sake
+            String[] cmd = {"chmod", "-R", "a+rx", _app.getLocalPath(LaunchUtil.LOCAL_JAVA_DIR).toString()};
             try {
                 log.info("Please smack a Java engineer. Running: " + Arrays.asList(cmd));
                 Runtime.getRuntime().exec(cmd);
