@@ -603,7 +603,7 @@ public abstract class Getdown extends Thread
         String vmpath = LaunchUtil.getJVMPath(_app.getLocalPath(""));
         try {
             log.info("Regenerating classes.jsa for " + vmpath + "...");
-            Runtime.getRuntime().exec(vmpath + " -Xshare:dump");
+            Runtime.getRuntime().exec(new String[] {vmpath, "-Xshare:dump"});
         } catch (Exception e) {
             log.warning("Failed to regenerate .jsa dum file", "error", e);
         }
