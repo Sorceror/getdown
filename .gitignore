@@ -1,3 +1,7 @@
-/target/
 .idea/
-getdown.iml
+target/
+dist/
+\.idea/
+*.iml
+\.project
+\.classpath
