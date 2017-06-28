@@ -12,6 +12,7 @@ import com.samskivert.util.RandomUtil;
 import com.samskivert.util.RunAnywhere;
 import com.samskivert.util.StringUtil;
 import com.threerings.getdown.launcher.RotatingBackgrounds;
+import com.threerings.getdown.tools.PlatformUtils;
 import com.threerings.getdown.util.*;
 import org.apache.commons.codec.binary.Base64;
 
@@ -757,8 +758,8 @@ public class Application
         Resource vmjar = getJavaVMResource();
         if (vmjar != null && vmjar.isMarkedValid()) {
             // there is some java already downloaded and unpacked, let's check its version
-            String jvmVersion = getUnpackedJavaVersionString();
-            if (parseJavaVersionAndCheckVersionRequierements(jvmVersion)) {
+            JavaVersion jvmVersion = getUnpackedJavaVersionString();
+            if (parseJavaVersionAndCheckVersionRequirements(jvmVersion)) {
                 log.info("Downloaded and unpacked JVM (" + jvmVersion + ") passed version requirements and will be used to launch APP");
                 return true;
             }
@@ -770,8 +771,8 @@ public class Application
         }
 
         // check java installed in OS
-        String osJavaVersion = System.getProperty("java.version");
-        boolean osJavaVersionCheck = parseJavaVersionAndCheckVersionRequierements(osJavaVersion);
+        JavaVersion osJavaVersion = new JavaVersion(System.getProperty("java.version"), System.getProperty("os.arch"));
+        boolean osJavaVersionCheck = parseJavaVersionAndCheckVersionRequirements(osJavaVersion);
         log.info("OS Java (" + osJavaVersion + ") " +
                 (osJavaVersionCheck ?
                         "passed version requirements and will be used to launch APP" :
@@ -783,11 +784,36 @@ public class Application
     }
 
     /**
-     * Check downloaded and unpacked version of JVM (if exists) and return its version as String
+     * Simple touple immutable class that contains information about parsed Java version
+     * @author Pavel Janecka
+     */
+    public static class JavaVersion {
+        public final String version;
+        public final String architecture;
+
+        /**
+         * Default constructor
+         * @param version String or null on fail
+         * @param architecture String or null on fail
+         */
+        public JavaVersion(String version, String architecture) {
+            this.version = version;
+            this.architecture = architecture;
+        }
+
+        @Override
+        public String toString() {
+            return "Java version='" + version + "', architecture='" + architecture + "\'";
+        }
+    }
+
+    /**
+     * Check downloaded and unpacked version of JVM (if exists) and return its version as String and architecture as String
      * @return String with JVM version (e.g. "1.8.0_25") or null if JVM not found or there was some error during processing
      */
-    private String getUnpackedJavaVersionString() {
+    private JavaVersion getUnpackedJavaVersionString() {
         String versionString = null;
+        String architectureString = null;
         // on windows command line javaw does not return any output by default
         // but "-version" is passed to error output same way as with java command itself
         String localJVMPath = LaunchUtil.getLocalJVMPath(getLocalPath(""));
@@ -810,11 +836,18 @@ public class Application
                     }
                     if (process.waitFor() != 0)
                         log.warning("Java version check process ended with irregular error code (" + process.exitValue() + ")");
+
                     Matcher m = Pattern.compile(".*\"(.*)\".*").matcher(versionOutputSB.toString());
                     if (m.matches())
                         versionString = m.group(1);
                     else
                         log.error("Unpacked java version string does not match! Value: " + versionOutputSB.toString());
+
+                    m = Pattern.compile(".*Java HotSpot\\(TM\\)\\s?(.*)\\s(Client|Server) VM.*").matcher(versionOutputSB.toString());
+                    if (m.matches())
+                        architectureString = m.group(1);
+                    else
+                        log.error("Unpacked java architecture string does not match! Value: " + versionOutputSB.toString());
                 } catch (Exception e) {
                     log.error("Exception during checking of unpacked java version", e);
                 } finally {
@@ -829,28 +862,35 @@ public class Application
             }
         }
 
-        return versionString;
+        return new JavaVersion(versionString, architectureString);
     }
 
     /**
      * Parse java version string (e.g. "1.8.0_25") and return if meets selected JVM version requirements
-     * @param versionString String JVM version
+     * @param javaVersion {@link JavaVersion} JVM version
      * @return boolean flag
      * @see #_javaMinVersion
      * @see #_javaMaxVersion
      * @see #_javaExactVersionRequired
      */
-    private boolean parseJavaVersionAndCheckVersionRequierements(String versionString) {
+    private boolean parseJavaVersionAndCheckVersionRequirements(JavaVersion javaVersion) {
         // sanity check
-        if (versionString == null)
+        if (javaVersion == null || javaVersion.version == null || javaVersion.architecture == null)
             return false;
 
-        Matcher m = Pattern.compile("(\\d+)\\.(\\d+)\\.(\\d+)(_\\d+)?.*").matcher(versionString);
+        // architecture check
+        if (javaVersion.architecture.contains("64") && PlatformUtils.getOperatingSystem().architecture == PlatformUtils.OSArchitecture.x32)
+            return false;
+        if (!javaVersion.architecture.contains("64") && PlatformUtils.getOperatingSystem().architecture == PlatformUtils.OSArchitecture.x64)
+            return false;
+
+        // build version check
+        Matcher m = Pattern.compile("(\\d+)\\.(\\d+)\\.(\\d+)(_\\d+)?.*").matcher(javaVersion.version);
         if (!m.matches()) {
             // if we can't parse the java version we're in weird land and should probably just try
             // our luck with what we've got rather than try to download a new jvm
             log.warning("Unable to parse VM version, hoping for the best",
-                    "version", versionString, "needed", _javaMinVersion);
+                    "version", javaVersion, "needed", _javaMinVersion);
             return true;
         }
 

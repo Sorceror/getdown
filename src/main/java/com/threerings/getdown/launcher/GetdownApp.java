@@ -27,6 +27,8 @@ import com.samskivert.util.RunAnywhere;
 import com.samskivert.util.StringUtil;
 
 import com.threerings.getdown.data.SysProps;
+import com.threerings.getdown.tools.PlatformUtils;
+
 import static com.threerings.getdown.Log.log;
 
 /**
@@ -82,8 +84,9 @@ public class GetdownApp
         // record a few things for posterity
         log.info("------------------ VM Info ------------------");
         log.info("-- OS Name: " + System.getProperty("os.name"));
-        log.info("-- OS Arch: " + System.getProperty("os.arch"));
+        log.info("-- OS Arch: " + PlatformUtils.getOperatingSystem().architectureString);
         log.info("-- OS Vers: " + System.getProperty("os.version"));
+        log.info("-- Java Arch: " + System.getProperty("os.arch"));
         log.info("-- Java Vers: " + System.getProperty("java.version"));
         log.info("-- Java Home: " + System.getProperty("java.home"));
         log.info("-- User Name: " + System.getProperty("user.name"));

@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.samskivert.util.StringUtil;
+import com.threerings.getdown.tools.PlatformUtils;
 
 import static com.threerings.getdown.Log.log;
 
@@ -50,10 +51,11 @@ public class ConfigUtil
     public static List<String[]> parsePairs (Reader config, boolean checkPlatform)
         throws IOException
     {
+
         return parsePairs(
             config,
-            checkPlatform ? StringUtil.deNull(System.getProperty("os.name")).toLowerCase() : null,
-            checkPlatform ? StringUtil.deNull(System.getProperty("os.arch")).toLowerCase() : null);
+                PlatformUtils.getOperatingSystem().typeString,
+                PlatformUtils.getOperatingSystem().architectureString);
     }
 
     /**
