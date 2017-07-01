@@ -54,8 +54,8 @@ public class ConfigUtil
 
         return parsePairs(
             config,
-                PlatformUtils.getOperatingSystem().typeString,
-                PlatformUtils.getOperatingSystem().architectureString);
+                checkPlatform ? PlatformUtils.getOperatingSystem().typeString : null,
+                checkPlatform ? PlatformUtils.getOperatingSystem().architectureString : null);
     }
 
     /**
