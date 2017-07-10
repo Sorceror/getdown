@@ -225,6 +225,8 @@
                     <archive>
                         <manifest>
                             <mainClass>com.threerings.getdown.launcher.GetdownApp</mainClass>
+                            <!-- https://maven.apache.org/shared/maven-archiver/examples/manifest.html -->
+                            <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
                         </manifest>
                         <manifestEntries>
                             <Permissions>all-permissions</Permissions>
