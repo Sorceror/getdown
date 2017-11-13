@@ -885,20 +885,30 @@ public class Application
             return false;
 
         // build version check
-        Matcher m = Pattern.compile("(\\d+)\\.(\\d+)\\.(\\d+)(_\\d+)?.*").matcher(javaVersion.version);
+        Matcher m;
+        // check if it's Java 8 or older versions - e.g. 1.8.0_121
+        if (javaVersion.version.contains("_")) {
+            m = Pattern.compile("(\\d+)\\.(\\d+)\\.(\\d+)(?>_(\\d+))?.*").matcher(javaVersion.version);
+        } else {
+            // it's Java 9 or newer
+            // based on https://docs.oracle.com/javase/9/docs/api/java/lang/Runtime.Version.html
+            m = Pattern.compile("([1-9][0-9]*)(?>\\.(\\d+))?(?>\\.(\\d+))?(?>\\.(\\d+))?").matcher(javaVersion.version);
+        }
+
         if (!m.matches()) {
             // if we can't parse the java version we're in weird land and should probably just try
             // our luck with what we've got rather than try to download a new jvm
-            log.warning("Unable to parse VM version, hoping for the best",
-                    "version", javaVersion, "needed", _javaMinVersion);
+            log.warning("Unable to parse VM version, hoping for the best","version", javaVersion, "needed", _javaMinVersion);
             return true;
         }
 
         int major = Integer.parseInt(m.group(1));
-        int minor = Integer.parseInt(m.group(2));
-        int revis = Integer.parseInt(m.group(3));
-        int patch = m.group(4) == null ? 0 : Integer.parseInt(m.group(4).substring(1));
+        int minor = m.group(2) == null ? 0 : Integer.parseInt(m.group(2));
+        int revis = m.group(3) == null ? 0 : Integer.parseInt(m.group(3));
+        int patch = m.group(4) == null ? 0 : Integer.parseInt(m.group(4));
         int version = patch + 100 * (revis + 100 * (minor + 100 * major));
+
+        log.info("Parsed java version is", "version", version, "min needed", _javaMinVersion, "max needed", _javaMaxVersion);
 
         if (_javaExactVersionRequired) {
             if (version == _javaMinVersion) {
