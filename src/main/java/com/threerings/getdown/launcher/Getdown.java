@@ -16,12 +16,7 @@ import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
 
 import javax.imageio.ImageIO;
-import javax.swing.AbstractAction;
-import javax.swing.ImageIcon;
-import javax.swing.JApplet;
-import javax.swing.JButton;
-import javax.swing.JFrame;
-import javax.swing.JLayeredPane;
+import javax.swing.*;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -38,7 +33,14 @@ import java.net.URLConnection;
 
 import java.security.cert.Certificate;
 
+import java.text.MessageFormat;
+import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.Timer;
 
 import ca.beq.util.win32.registry.RegistryKey;
 import ca.beq.util.win32.registry.RegistryValue;
@@ -403,11 +405,15 @@ public abstract class Getdown extends Thread
                 // make sure we have the desired version and that the metadata files are valid...
                 setStep(Step.VERIFY_METADATA);
                 setStatus("m.validating", -1, -1L, false);
-                if (_app.verifyMetadata(this)) {
+                long[] versions = _app.verifyMetadata(this);
+                if (versions[0] != versions[1]) {
                     log.info("Application requires update.");
-                    update();
-                    // loop back again and reverify the metadata
-                    continue;
+                    // let's ask user if update should be postponed
+                    if (_silent || !shouldPostponeUpdate(versions[0], versions[1])) {
+                        update();
+                        // loop back again and reverify the metadata
+                        continue;
+                    }
                 }
 
                 // if we aren't running in a JVM that meets our version requirements, either
@@ -517,6 +523,50 @@ public abstract class Getdown extends Thread
             fail(msg);
             _app.releaseLock();
         }
+    }
+
+    private String getMessage (String key) {
+        try {
+            return MessageUtil.escape(_msgs.getString(key));
+        } catch (MissingResourceException mre) {
+            log.warning("Missing translation message '" + key + "'.");
+            return key;
+        }
+    }
+
+    private final DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+
+    private boolean shouldPostponeUpdate(long currentBuild, long targetBuild) {
+        File forceUpdateFile = _app.getLocalPath("forceUpdate.dt");
+        if (forceUpdateFile.exists()) {
+            forceUpdateFile.deleteOnExit();
+            log.info("Force update file present, update will be forced this time");
+        } else {
+            long daysToPostpone;
+            try {
+                daysToPostpone = ChronoUnit.DAYS.between(
+                    LocalDateTime.now().with(LocalTime.MIDNIGHT),
+                    LocalDateTime.parse(String.valueOf(targetBuild), dtf).with(LocalTime.MIDNIGHT).plusDays(7)
+                );
+                log.info("Current build: " + currentBuild + " target build: " + targetBuild + " could be postponed for " + daysToPostpone + " day(s)");
+                boolean postPone = false;
+                if (daysToPostpone > 0) {
+                    postPone = JOptionPane.NO_OPTION == JOptionPane.showOptionDialog(null,
+                            MessageFormat.format(getMessage("m.update_question_message"), daysToPostpone),
+                            getMessage("m.update_question_title"),
+                            JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE, null,
+                            new String[]{getMessage("m.update_button_yes"), getMessage("m.update_button_no")},
+                            getMessage("m.update_button_yes"));
+                    log.info("User decided to postpone the update: " + postPone);
+                } else {
+                    log.info("Cannot postpone anymore, update will be forced");
+                }
+                return postPone;
+            } catch (Exception e) {
+                log.warning("Cannot obtain day difference in builds (current: " + currentBuild + " target: " + targetBuild + "), update cannot be postponed, ex: " + e.getMessage());
+            }
+        }
+        return false;
     }
 
     // documentation inherited from interface

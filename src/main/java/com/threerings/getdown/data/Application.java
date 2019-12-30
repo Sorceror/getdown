@@ -1215,7 +1215,7 @@ public class Application
      * @exception IOException thrown if we encounter an unrecoverable error while verifying the
      * metadata.
      */
-    public boolean verifyMetadata (StatusDisplay status)
+    public long[] verifyMetadata (StatusDisplay status)
         throws IOException
     {
         log.info("Verifying application: " + _vappbase);
@@ -1324,7 +1324,7 @@ public class Application
         }
 
         // finally let the caller know if we need an update
-        return _version != _targetVersion;
+        return new long[] {_version, _targetVersion};
     }
 
     /**
